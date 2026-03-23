@@ -1,17 +1,21 @@
-########################################################################################
-# Example of a simple agent with tools
-########################################################################################
-import os
-
 from langchain.tools import tool
-from langchain.chat_models import init_chat_model
+from langchain.agents import create_agent
+import os
 from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.messages import SystemMessage, HumanMessage
 
 load_dotenv()
 
-# model = init_chat_model("claude-sonnet-4-6", temperature=0)
+
+from langfuse.langchain import CallbackHandler
+
+langfuse_handler = CallbackHandler()
+
 model = init_chat_model(
-    "gpt-5", temperature=0, api_key=os.environ.get("OPENAI_API_KEY")
+    "gpt-5",
+    temperature=0,
+    api_key=os.environ.get("OPENAI_API_KEY"),
 )
 
 
@@ -53,7 +57,6 @@ def divide(a: int, b: int) -> float:
 tools = [add, multiply, divide]
 tools_by_name = {tool.name: tool for tool in tools}
 model_with_tools = model.bind_tools(tools)
-
 
 from langchain.messages import AnyMessage
 from typing_extensions import TypedDict, Annotated
@@ -133,16 +136,12 @@ agent_builder.add_edge("tool_node", "llm_call")
 # Compile the agent
 agent = agent_builder.compile()
 
-# Show the agent
-png_bytes = agent.get_graph().draw_mermaid_png()
-with open("graph_visualization.png", "wb") as f:
-    f.write(png_bytes)
-print("Graph visualization saved to graph_visualization.png")
-
 # Invoke
 from langchain.messages import HumanMessage
 
 messages = [HumanMessage(content="Add 3 and 4.")]
-messages = agent.invoke({"messages": messages})
+messages = agent.invoke(
+    {"messages": messages}, config={"callbacks": [langfuse_handler]}
+)
 for m in messages["messages"]:
     m.pretty_print()
